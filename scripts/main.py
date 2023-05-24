@@ -9,6 +9,7 @@ import re
 import os
 import string
 import csv
+import time
 
 # The directory to store the models
 cache_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models')
@@ -357,7 +358,7 @@ class Script(scripts.Script):
 
     def title(self):
         """Returns the title of the script."""
-        return "Auto translate prompt to english"
+        return "自动翻译提示词"
 
     def show(self, is_img2img):
         """Returns the visibility status of the script in the interface."""
@@ -367,9 +368,9 @@ class Script(scripts.Script):
         """Sets the is_active attribute and initializes the translator object if not already created. 
         Also, sets the visibility of the language dropdown to True."""
         self.is_active=not disable
-        if not hasattr(self, "translator"):
+        if not disable and not hasattr(self, "translator"):
             self.translator = MBartTranslator()
-        return "ready", self.options.update(visible=True)
+        return "准备好了", self.output.update(visible=True)
 
     def set_negative_translate_active(self, negative_translate_active):
         """Sets the is_active attribute and initializes the translator object if not already created. 
@@ -384,30 +385,30 @@ class Script(scripts.Script):
 
         with gr.Row():
             with gr.Column():
-                with gr.Accordion("Prompt Translator",open=False):
-                    with gr.Accordion("Help",open=False):
+                with gr.Accordion("提示词翻译器",open=False):
+                    with gr.Accordion("帮助",open=False):
                         gr.Markdown("""
                         # 描述
                         这个扩展可以让您使用母语直接编写提示词，无需翻译。
                         # 如何使用
-                        默认开启，默认只翻译正面提示词，如果需要翻译负面提示词，请在下方勾选 Translate negative prompt
+                        默认开启翻译正面提示词，如果需要翻译负面提示词，请在下方勾选"翻译负面提示词"，如果需要关闭翻译，请在下方勾选"禁用翻译"。
                         # 注意事项
                         第一次启用脚本时可能需要很长时间下载翻译模型和加载模型，但一旦加载完成，它将更快。自定义提示词翻译在extensions/sd-prompt-translator/scripts/translation.csv中，您可以自行添加。
-                        若有问题前往https://github.com/studyzy/sd-prompt-translator留言或者Email:studyzy@gmail.com
+                        若有问题前往https://github.com/studyzy/sd-prompt-translator留言或者Email作者:studyzy@gmail.com
                         """)
                     with gr.Column():
-                        self.disable_translation = gr.Checkbox(label="Disable translation", value=False)
+                        self.disable_translation = gr.Checkbox(label="禁用翻译", value=False)
                         with gr.Column() as options:
                             self.options=options
-                            self.translate_negative_prompt = gr.Checkbox(label="Translate negative prompt")
+                            self.translate_negative_prompt = gr.Checkbox(label="翻译负面提示词")
                             self.language = gr.Dropdown(
-                                                label="Source language",
+                                                label="源语言",
                                                 choices=[x.label for x in self.current_axis_options],
                                                 value="中文",
                                                 type="index", 
                                                 elem_id=self.elem_id("x_type")
                                             )
-                        self.output=gr.Label("首次运行加载模型耗时较长，请耐心等待")
+                        self.output=gr.Label("首次运行加载模型耗时较长，请耐心等待",visible=False)
                         self.disable_translation.change(
                             self.set_active,
                             [self.disable_translation],
@@ -444,7 +445,7 @@ class Script(scripts.Script):
             if text_array[i].startswith('<') and text_array[i].endswith('>'):
                 continue
             # 判断是否只包含英文字符
-            if all(char in string.ascii_letters + ' ' for char in text_array[i]):
+            if all(char in string.printable + ' ' for char in text_array[i]):
                 continue
             else:
                 # 调用 transfer 函数进行翻译
@@ -463,15 +464,18 @@ class Script(scripts.Script):
             return result
         else:
             # 调用 API 进行翻译
-            return self.translator.translate(text, self.ln_code, "en_XX")
+            en_prompt = self.translator.translate(text, self.ln_code, "en_XX")
+            print("DEBUG: translate", text, en_prompt)
+            return en_prompt
     def process(self, p, language, **kwargs):
         """Translates the prompts from a non-English language to English using the MBartTranslator object."""
         print("DEBUG:Run devin process",self.is_active,language,p)
-        try:
+        if isinstance(language, int) and language >= 0:
+            # 参数为大于等于0的整数
             language_option = language_options[language]
-        except KeyError:
-            language = 0
-            language_option = language_options[language]
+        else:
+            # 参数不是大于等于0的整数
+            language_option = language_options[0]
         if not hasattr(self, "translator") and self.is_active:
             self.translator = MBartTranslator()
         if hasattr(self, "translator") and self.is_active:
@@ -486,9 +490,11 @@ class Script(scripts.Script):
                     print(f"Initial prompt:{original_prompt}")
                     self.ln_code = language_option.language_code
                     # translated_prompt = self.translator.translate(original_prompt, ln_code, "en_XX")
+                    start_time = time.time()
                     translated_prompt = self.process_text(original_prompt)
                     translated_prompt = post_process_prompt(original_prompt, translated_prompt)
-                    print(f"Translated prompt:{translated_prompt}")
+                    end_time = time.time()
+                    print(f"Translated prompt:{translated_prompt}, spend time:{end_time-start_time}")
                     translated_prompts.append(translated_prompt)
 
                     previous_prompt=original_prompt
@@ -503,11 +509,13 @@ class Script(scripts.Script):
                 translated_negative_prompts=[]
                 for negative_prompt in original_negative_prompts:
                     if previous_negative_prompt!=negative_prompt:
+                        start_time = time.time()
                         print(f"Translating negative prompt to English from {language_option.label}")
                         print(f"Initial negative prompt:{negative_prompt}")
                         translated_negative_prompt = self.process_text(negative_prompt)
                         translated_negative_prompt = post_process_prompt(negative_prompt,translated_negative_prompt)
-                        print(f"Translated negative prompt:{translated_negative_prompt}")
+                        end_time = time.time()
+                        print(f"Translated negative prompt:{translated_negative_prompt}, spend time:{end_time-start_time}")
                         translated_negative_prompts.append(translated_negative_prompt)
 
 
