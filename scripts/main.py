@@ -465,11 +465,9 @@ class Script(scripts.Script):
         else:
             # 调用 API 进行翻译
             en_prompt = self.translator.translate(text, self.ln_code, "en_XX")
-            print("DEBUG: translate", text, en_prompt)
             return en_prompt
     def process(self, p, language, **kwargs):
         """Translates the prompts from a non-English language to English using the MBartTranslator object."""
-        print("DEBUG:Run devin process",self.is_active,language,p)
         if isinstance(language, int) and language >= 0:
             # 参数为大于等于0的整数
             language_option = language_options[language]
