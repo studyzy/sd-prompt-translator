@@ -3,7 +3,7 @@
 import modules.scripts as scripts
 import gradio as gr
 from modules.shared import opts
-
+from transformers import MarianMTModel, MarianTokenizer
 from transformers import MBart50TokenizerFast, MBartForConditionalGeneration
 import re
 import os
@@ -14,6 +14,25 @@ import time
 # The directory to store the models
 cache_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models')
 
+class ZhEnTranslator:
+    def __init__(self, cache_dir=cache_dir, model_name="Helsinki-NLP/opus-mt-zh-en"):
+        self.model_name = model_name
+
+        # 加载模型和tokenizer
+        self.model = MarianMTModel.from_pretrained(self.model_name, cache_dir=cache_dir)
+        self.tokenizer = MarianTokenizer.from_pretrained(self.model_name, cache_dir=cache_dir)
+
+    def translate(self, chinese_str: str, input_language: str, output_language: str) -> str:
+        # 对中文句子进行分词
+        input_ids = self.tokenizer.encode(chinese_str, return_tensors="pt")
+
+        # 进行翻译
+        output_ids = self.model.generate(input_ids)
+
+        # 将翻译结果转换为字符串格式
+        english_str = self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
+
+        return english_str
 class MBartTranslator:
     """MBartTranslator class provides a simple interface for translating text using the MBart language model.
 
@@ -127,7 +146,6 @@ class MBartTranslator:
         translated_text = self.tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
 
         return translated_text[0]
-
 
 
 class LanguageOption:
@@ -369,15 +387,24 @@ class Script(scripts.Script):
         Also, sets the visibility of the language dropdown to True."""
         self.is_active=not disable
         if not disable and not hasattr(self, "translator"):
-            self.translator = MBartTranslator()
+            if self.ln_code=="zh_CN":
+                self.translator=ZhEnTranslator()
+            else:
+                self.translator = MBartTranslator()
         return "准备好了", self.output.update(visible=True)
 
     def set_negative_translate_active(self, negative_translate_active):
         """Sets the is_active attribute and initializes the translator object if not already created. 
         Also, sets the visibility of the language dropdown to True."""
         self.is_negative_translate_active=negative_translate_active
-        
-
+    def set_ln_code(self, language):
+        print("Devin Debug: set_ln_code",language)
+        language_option = language_options[language]
+        self.ln_code = language_option.language_code
+        if self.ln_code=="zh_CN":
+            self.translator=ZhEnTranslator()
+        else:
+            self.translator = MBartTranslator()
 
     def ui(self, is_img2img):
         """Sets up the user interface of the script."""
@@ -418,6 +445,10 @@ class Script(scripts.Script):
                         self.translate_negative_prompt.change(
                             self.set_negative_translate_active,
                             [self.translate_negative_prompt], 
+                        )
+                        self.language.change(
+                            self.set_ln_code,
+                            [self.language],
                         )
 
         self.options.visible=True
@@ -474,8 +505,12 @@ class Script(scripts.Script):
         else:
             # 参数不是大于等于0的整数
             language_option = language_options[0]
+        self.ln_code = language_option.language_code
         if not hasattr(self, "translator") and self.is_active:
-            self.translator = MBartTranslator()
+            if self.ln_code=="zh_CN":
+                self.translator=ZhEnTranslator()
+            else:
+                self.translator = MBartTranslator()
         if hasattr(self, "translator") and self.is_active:
             original_prompts, original_negative_prompts = self.get_prompts(p)
             translated_prompts=[]
@@ -486,7 +521,7 @@ class Script(scripts.Script):
                 if previous_prompt != original_prompt:
                     print(f"Translating prompt to English from {language_option.label}")
                     print(f"Initial prompt:{original_prompt}")
-                    self.ln_code = language_option.language_code
+
                     # translated_prompt = self.translator.translate(original_prompt, ln_code, "en_XX")
                     start_time = time.time()
                     translated_prompt = self.process_text(original_prompt)
