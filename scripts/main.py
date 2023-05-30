@@ -13,7 +13,7 @@ import time
 
 # The directory to store the models
 cache_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models')
-
+# 中文转英文的翻译模型
 class ZhEnTranslator:
     def __init__(self, cache_dir=cache_dir, model_name="Helsinki-NLP/opus-mt-zh-en"):
         self.model_name = model_name
@@ -33,6 +33,8 @@ class ZhEnTranslator:
         english_str = self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
 
         return english_str
+
+# 支持50种语言的翻译模型
 class MBartTranslator:
     """MBartTranslator class provides a simple interface for translating text using the MBart language model.
 
@@ -44,76 +46,62 @@ class MBartTranslator:
         tokenizer (MBart50TokenizerFast): The MBart tokenizer.
     """
 
-    def __init__(self, model_name="facebook/mbart-large-50-many-to-many-mmt", src_lang=None, tgt_lang=None):
+    def __init__(self, model_name="facebook/mbart-large-50-many-to-one-mmt", src_lang=None, tgt_lang=None):
 
         self.supported_languages = [
-            "zh_CN",
+            "af_ZA",
             "ar_AR",
+            "az_AZ",
+            "bn_IN",
+            "cs_CZ",
+            "da_DK",
             "de_DE",
             "en_XX",
             "es_XX",
-            "fr_XX",
-            "hi_IN",
-            "it_IT",
-            "ja_XX",
-            "ko_XX",
-            "pt_XX",
-            "ru_RU",
-            "zh_XX",
-            "af_ZA",
-            "bn_BD",
-            "bs_XX",
-            "ca_XX",
-            "cs_CZ",
-            "da_XX",
-            "el_GR",
             "et_EE",
             "fa_IR",
             "fi_FI",
+            "fr_XX",
+            "gl_ES",
             "gu_IN",
             "he_IL",
-            "hi_XX",
+            "hi_IN",
             "hr_HR",
             "hu_HU",
             "id_ID",
-            "is_IS",
+            "it_IT",
             "ja_XX",
-            "jv_XX",
             "ka_GE",
-            "kk_XX",
+            "kk_KZ",
             "km_KH",
-            "kn_IN",
             "ko_KR",
-            "lo_LA",
             "lt_LT",
             "lv_LV",
             "mk_MK",
             "ml_IN",
+            "mn_MN",
             "mr_IN",
-            "ms_MY",
             "ne_NP",
             "nl_XX",
-            "no_XX",
-            "pl_XX",
+            "no_NO",
+            "pl_PL",
+            "pt_XX",
             "ro_RO",
+            "ru_RU",
             "si_LK",
-            "sk_SK",
             "sl_SI",
-            "sq_AL",
-            "sr_XX",
-            "sv_XX",
-            "sw_TZ",
+            "sv_SE",
+            "sw_KE",
             "ta_IN",
             "te_IN",
             "th_TH",
-            "tl_PH",
+            "tl_XX",
             "tr_TR",
             "uk_UA",
             "ur_PK",
             "vi_VN",
-            "war_PH",
-            "yue_XX",
-            "zh_TW",
+            "xh_ZA",
+            "zh_CN",
         ]
         print("Building translator")
         print("Loading generator (this may take few minutes the first time as I need to download the model)")
@@ -135,19 +123,16 @@ class MBartTranslator:
         """
         if input_language not in self.supported_languages:
             raise ValueError(f"Input language not supported. Supported languages: {self.supported_languages}")
-        if output_language not in self.supported_languages:
-            raise ValueError(f"Output language not supported. Supported languages: {self.supported_languages}")
+        # if output_language not in self.supported_languages:
+        #     raise ValueError(f"Output language not supported. Supported languages: {self.supported_languages}")
 
         self.tokenizer.src_lang = input_language
         encoded_input = self.tokenizer(text, return_tensors="pt")
-        generated_tokens = self.model.generate(
-            **encoded_input, forced_bos_token_id=self.tokenizer.lang_code_to_id[output_language]
-        )
+        generated_tokens = self.model.generate(**encoded_input)
         translated_text = self.tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
-
         return translated_text[0]
 
-
+# 语言选择器
 class LanguageOption:
     """
     A class representing a language option in a language selector.
@@ -397,8 +382,9 @@ class Script(scripts.Script):
         """Sets the is_active attribute and initializes the translator object if not already created. 
         Also, sets the visibility of the language dropdown to True."""
         self.is_negative_translate_active=negative_translate_active
+
     def set_ln_code(self, language):
-        print("Devin Debug: set_ln_code",language)
+        # print("Devin Debug: set_ln_code",language)
         language_option = language_options[language]
         self.ln_code = language_option.language_code
         if self.ln_code=="zh_CN":
