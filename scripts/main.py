@@ -31,7 +31,9 @@ class ZhEnTranslator:
 
         # 将翻译结果转换为字符串格式
         english_str = self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
-
+        #如果最后有一个.，则去掉
+        if english_str[-1] == '.':
+            english_str = english_str[:-1]
         return english_str
 
 # 支持50种语言的翻译模型
