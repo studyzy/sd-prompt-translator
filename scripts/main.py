@@ -456,21 +456,21 @@ class Script(scripts.Script):
     def process_text(self,text):
         # 将中文全角标点符号替换为半角标点符号
         text = text.translate(str.maketrans('，。！？；：‘’“”（）【】', ',.!?;:\'\'\"\"()[]'))
-        # 按逗号分割成数组
-        text_array = text.split(',')
-        # 对数组中每个字符串进行处理
-        for i in range(len(text_array)):
-            # 如果字符串以 < 开头 > 结尾，则是Lora，跳过不处理
-            if text_array[i].find('lora:') != -1:
-                continue
-            # 判断是否只包含英文字符
-            if all(char in string.printable + ' ' for char in text_array[i]):
-                continue
+        # 使用正则表达式来分割尖括号内外的内容
+        parts = re.split(r'(<[^>]*>)', text)
+
+        # 遍历分割后的字符串列表，对尖括号外的内容进行翻译
+        translated_parts = []
+        for part in parts:
+            if part.startswith('<') and part.endswith('>'):
+                translated_parts.append(part)
             else:
-                # 调用 transfer 函数进行翻译
-                text_array[i] = self.transfer(text_array[i])
-        # 重新用逗号连接成字符串并返回
-        return ','.join(text_array)
+                # 使用逗号分割字符串，并对每个字符串进行翻译
+                translated_segments = [self.transfer(segment) for segment in part.split(',')]
+                translated_parts.append(','.join(translated_segments))
+
+        # 将翻译后的字符串拼接成一个字符串
+        return ''.join(translated_parts)
 
     # 翻译函数
     def transfer(self,text):
