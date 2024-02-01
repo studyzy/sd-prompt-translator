@@ -461,7 +461,7 @@ class Script(scripts.Script):
         # 对数组中每个字符串进行处理
         for i in range(len(text_array)):
             # 如果字符串以 < 开头 > 结尾，则是Lora，跳过不处理
-            if text_array[i].startswith('<') and text_array[i].endswith('>'):
+            if text_array[i].find('lora:')!=-1:
                 continue
             # 判断是否只包含英文字符
             if all(char in string.printable + ' ' for char in text_array[i]):
