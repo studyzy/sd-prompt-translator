@@ -465,12 +465,17 @@ class Script(scripts.Script):
             if part.startswith('<') and part.endswith('>'):
                 translated_parts.append(part)
             else:
-                # 使用逗号分割字符串，并对每个字符串进行翻译
-                translated_segments = [self.transfer(segment) for segment in part.split(',')]
+                # 使用逗号分割字符串，并对每个字符串进行翻译（如果不是英文）
+                translated_segments = [self.transfer(segment) if not self.is_english(segment) else segment for segment
+                                       in part.split(',')]
                 translated_parts.append(','.join(translated_segments))
 
         # 将翻译后的字符串拼接成一个字符串
         return ''.join(translated_parts)
+
+    def is_english(self, text):
+        # 判断字符串是否只包含英文字符和空格
+        return all(c.isascii() or c.isspace() for c in text)
 
     # 翻译函数
     def transfer(self,text):
