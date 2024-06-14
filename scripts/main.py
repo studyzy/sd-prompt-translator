@@ -343,6 +343,11 @@ def load_csv(csv_file):
         cache = dict(reader)
     return cache
 
+# 加载 csv 文件并缓存到内存中
+cache = load_csv(os.path.join(os.path.dirname(__file__), 'translations.csv'))
+
+cache_translate = {} # 缓存翻译结果
+
 # 自定义翻译函数
 def custom_translate(text, cache):
     if text in cache:
@@ -479,16 +484,19 @@ class Script(scripts.Script):
 
     # 翻译函数
     def transfer(self,text):
-        # 加载 csv 文件并缓存到内存中
-        csv_path = os.path.join(os.path.dirname(__file__), 'translations.csv')
-        cache = load_csv(csv_path)
+        # 缓存翻译
+        cache_result = cache_translate.get(text)
+        if cache_result is not None:
+            return cache_result
         # 自定义翻译
         result = custom_translate(text, cache)
         if result is not None:
+            cache_translate[text] = result
             return result
         else:
             # 调用 API 进行翻译
             en_prompt = self.translator.translate(text, self.ln_code, "en_XX")
+            cache_translate[text] = en_prompt
             return en_prompt
     def process(self, p, language, **kwargs):
         """Translates the prompts from a non-English language to English using the MBartTranslator object."""
