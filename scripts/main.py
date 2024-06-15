@@ -471,7 +471,7 @@ class Script(scripts.Script):
                 translated_parts.append(part)
             else:
                 # 使用逗号分割字符串，并对每个字符串进行翻译（如果不是英文）
-                translated_segments = [self.transfer(segment) if not self.is_english(segment) else segment for segment
+                translated_segments = [self.transfer_processing(segment) if not self.is_english(segment) else segment for segment
                                        in part.split(',')]
                 translated_parts.append(','.join(translated_segments))
 
@@ -498,6 +498,16 @@ class Script(scripts.Script):
             en_prompt = self.translator.translate(text, self.ln_code, "en_XX")
             cache_translate[text] = en_prompt
             return en_prompt
+    
+    # 翻译前对SD语法预处理
+    def transfer_processing (self, text): 
+        pattern = re.compile(r'[\(\[\{]*([^:\]\)\}]*)[:)\]\}]*')
+        matches = pattern.match(text)
+        if (matches and matches.group(1)):
+            return text.replace(matches.group(1), self.transfer(matches.group(1)))
+        else:
+            return self.transfer(text)
+
     def process(self, p, language, **kwargs):
         """Translates the prompts from a non-English language to English using the MBartTranslator object."""
         if isinstance(language, int) and language >= 0:
